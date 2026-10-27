@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Cards - Auto Kartenspiel Simulation</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & Orbitron -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0a0c10',
+                        cardbg: '#12161f',
+                        accent: '#ff2d55',
+                        gold: '#ffd700',
+                        common: '#9ea0a6',
+                        rare: '#3b82f6',
+                        epic: '#a855f7',
+                        legendary: '#f59e0b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        orbitron: ['Orbitron', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #080a0e;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(255, 45, 85, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(59, 130, 246, 0.08) 0%, transparent 40%);
+            background-attachment: fixed;
+            color: #f3f4f6;
+            user-select: none;
+        }
+
+        /* Holographic Card Effects */
+        .card-epic {
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+            border: 2px solid #a855f7;
+        }
+        .card-legendary {
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.6);
+            border: 2px solid #f59e0b;
+            position: relative;
+            overflow: hidden;
+        }
+        .card-legendary::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                60deg,
+                transparent 30%,
+                rgba(255, 255, 255, 0.15) 45%,
+                rgba(255, 215, 0, 0.25) 50%,
+                rgba(255, 255, 255, 0.15) 55%,
+                transparent 70%
+            );
+            transform: rotate(30deg);
+            animation: holoShine 4s infinite linear;
+            pointer-events: none;
+        }
+
+        @keyframes holoShine {
+            0% { transform: translateY(-100%) rotate(30deg); }
+            100% { transform: translateY(100%) rotate(30deg); }
+        }
+
+        /* Pack Tear Animation */
+        .pack-container {
+            perspective: 1000px;
+        }
+        
+        .pack-wrapper {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .pack-wrapper:hover {
+            transform: translateY(-8px) scale(1.02);
+        }
+
+        .shake-animation {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0) rotate(-1deg); }
+            20%, 80% { transform: translate3d(4px, 0, 0) rotate(2deg); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0) rotate(-2deg); }
+            40%, 60% { transform: translate3d(6px, 0, 0) rotate(2deg); }
+        }
+
+        /* Card reveal entrance */
+        .card-appear {
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.5) translateY(50px) rotateX(20deg); }
+            100% { opacity: 1; transform: scale(1) translateY(0) rotateX(0); }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f131a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #262d3d;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b455a;
+        }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col">
+
+    <!-- HEADER / NAVIGATION -->
+    <header class="sticky top-0 z-40 bg-darkbg/80 backdrop-blur-md border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <!-- LOGO -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('packs')">
+                <div class="w-12 h-12 bg-gradient-to-tr from-accent to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-accent/20">
+                    <i class="fa-solid fa-car-side text-2xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-orbitron font-extrabold text-2xl tracking-wider text-white">APEX<span class="text-accent">CARDS</span></h1>
+                    <p class="text-xs text-gray-400">Das ultimative Auto-Kartenspiel</p>
+                </div>
+            </div>
+
+            <!-- TABS -->
+            <nav class="flex items-center space-x-2 bg-gray-900/80 p-1.5 rounded-xl border border-gray-800">
+                <button id="nav-btn-packs" onclick="switchTab('packs')" class="px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center space-x-2 bg-accent text-white shadow-md">
+                    <i class="fa-solid fa-box-open"></i>
+                    <span>Packs öffnen</span>
+                </button>
+                <button id="nav-btn-garage" onclick="switchTab('garage')" class="px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center space-x-2 text-gray-400 hover:text-white hover:bg-gray-800">
+                    <i class="fa-solid fa-warehouse"></i>
+                    <span>Garage</span>
+                    <span id="collected-badge" class="ml-2 bg-gray-800 text-accent px-2 py-0.5 rounded-full text-xs border border-gray-700">0/0</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- ==================== TAB 1: PACKS SHOP ==================== -->
+        <section id="tab-packs" class="space-y-8">
+            
+            <!-- PROGRESSION & TIER STATUS BANNER -->
+            <div class="bg-cardbg/80 border border-gray-800 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden shadow-2xl">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                    <div>
+                        <div class="flex items-center space-x-2 text-accent font-orbitron font-bold text-sm tracking-widest uppercase">
+                            <i class="fa-solid fa-trophy"></i>
+                            <span>Freischalt-Fortschritt</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white mt-1" id="tier-title-text">Stufe 1: Das Duell (Mercedes vs BMW)</h2>
+                        <p class="text-gray-400 text-sm mt-1">Sammle <span class="text-white font-bold">80%</span> aller Karten der aktuellen Stufe, um die nächsten Spezial-Packs freizuschalten!</p>
+                    </div>
+                    <div class="w-full md:w-80 bg-gray-900/90 p-4 rounded-xl border border-gray-800">
+                        <div class="flex justify-between text-xs font-semibold mb-2">
+                            <span class="text-gray-400">Aktueller Stufen-Fortschritt</span>
+                            <span id="tier-progress-text" class="text-accent font-orbitron">0% / 80%</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-3 rounded-full overflow-hidden p-0.5 border border-gray-700">
+                            <div id="tier-progress-bar" class="bg-gradient-to-r from-red-500 to-accent h-full rounded-full transition-all duration-500 shadow-sm shadow-accent" style="width: 0%"></div>
+                        </div>
+                        <div class="text-[11px] text-gray-500 mt-2 text-right italic" id="tier-next-unlock">
+                            Nächstes Ziel: Tier 2 (Audi & Porsche)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PACK SELECTION GRID -->
+            <div>
+                <h3 class="text-xl font-orbitron font-bold text-white mb-6 flex items-center space-x-2">
+                    <i class="fa-solid fa-layer-group text-accent"></i>
+                    <span>Verfügbare Booster Packs</span>
+                </h3>
+                <div id="packs-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <!-- Packs generated dynamically by JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 2: GARAGE / COLLECTION ==================== -->
+        <section id="tab-garage" class="space-y-6 hidden">
+            <!-- GARAGE HEADER STATS & FILTERS -->
+            <div class="bg-cardbg/80 border border-gray-800 rounded-2xl p-6 backdrop-blur-sm space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-800 pb-6">
+                    <div>
+                        <h2 class="text-3xl font-orbitron font-extrabold text-white">Meine Garage</h2>
+                        <p class="text-gray-400 text-sm mt-1">Verwalte und betrachte deine gesammelten Traumautos</p>
+                    </div>
+                    <div class="flex items-center space-x-4 bg-gray-900/90 px-5 py-3 rounded-xl border border-gray-800">
+                        <div class="text-center">
+                            <div class="text-xs text-gray-400 uppercase font-semibold">Gesamt-Sammlung</div>
+                            <div class="text-xl font-orbitron font-bold text-accent" id="garage-stats-total">0 / 0</div>
+                        </div>
+                        <div class="h-8 w-px bg-gray-800"></div>
+                        <div class="text-center">
+                            <div class="text-xs text-gray-400 uppercase font-semibold">Komplettiert</div>
+                            <div class="text-xl font-orbitron font-bold text-green-400" id="garage-stats-percent">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILTER CONTROLS -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-2">Marke filtern</label>
+                        <select id="filter-brand" onchange="applyGarageFilters()" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-accent">
+                            <option value="ALL">Alle Marken</option>
+                            <!-- Options added dynamically -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-2">Seltenheit filtern</label>
+                        <select id="filter-rarity" onchange="applyGarageFilters()" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-accent">
+                            <option value="ALL">Alle Seltenheiten</option>
+                            <option value="Common">Gewöhnlich</option>
+                            <option value="Rare">Selten</option>
+                            <option value="Epic">Episch</option>
+                            <option value="Legendary">Legendär</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-2">Status filtern</label>
+                        <select id="filter-status" onchange="applyGarageFilters()" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-accent">
+                            <option value="ALL">Alle Karten</option>
+                            <option value="OWNED">Nur Freigeschaltete</option>
+                            <option value="LOCKED">Nur Sperrgebiet (Fehlend)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARDS GRID IN GARAGE -->
+            <div id="garage-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Garage cards rendered dynamically -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== PACK OPENING ANIMATION OVERLAY ==================== -->
+    <div id="opening-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 hidden">
+        
+        <!-- Stage 1: Sealed Pack waiting to be opened -->
+        <div id="pack-stage-closed" class="flex flex-col items-center justify-center space-y-6 text-center max-w-sm w-full">
+            <h2 class="text-2xl font-orbitron font-extrabold text-white tracking-wide" id="modal-pack-title">PACK WIRD GEÖFFNET</h2>
+            
+            <div id="sealed-pack-graphic" onclick="triggerPackOpenSequence()" class="pack-wrapper cursor-pointer w-64 h-96 rounded-2xl bg-gradient-to-b from-gray-800 via-gray-900 to-black p-1 border-2 border-accent shadow-2xl shadow-accent/30 relative flex flex-col items-center justify-between p-6">
+                <div class="w-full flex justify-between items-center text-xs text-gray-400 font-orbitron">
+                    <span>APEX BOOSTER</span>
+                    <i class="fa-solid fa-bolt text-accent"></i>
+                </div>
+                
+                <div class="my-auto text-center">
+                    <i id="modal-pack-icon" class="fa-solid fa-box-open text-6xl text-accent mb-4"></i>
+                    <div id="modal-pack-name" class="font-orbitron font-bold text-xl text-white">BOOSTER</div>
+                    <div class="text-xs text-gray-400 mt-2">Klicke zum Öffnen!</div>
+                </div>
+
+                <div class="w-full text-center text-[10px] text-gray-500 tracking-widest uppercase">
+                    5 CARDS INSIDE
+                </div>
+            </div>
+
+            <p class="text-xs text-gray-400 animate-pulse">Tippe auf das Pack, um das Siegel zu brechen!</p>
+        </div>
+
+        <!-- Stage 2: Revealed Cards Carousel / Display -->
+        <div id="pack-stage-cards" class="w-full max-w-5xl flex flex-col items-center space-y-8 hidden">
+            <div class="text-center space-y-1">
+                <h2 class="text-3xl font-orbitron font-extrabold text-white">GLÜCKWUNSCH!</h2>
+                <p class="text-gray-400 text-sm">Du hast folgende Karten gezogen:</p>
+            </div>
+
+            <!-- CARDS CONTAINER -->
+            <div id="revealed-cards-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full px-2">
+                <!-- Cards injected dynamically -->
+            </div>
+
+            <button onclick="closeOpeningModal()" class="px-8 py-3.5 bg-gradient-to-r from-accent to-red-600 hover:from-red-600 hover:to-accent text-white font-orbitron font-bold rounded-xl shadow-lg shadow-accent/30 transition duration-200 transform hover:scale-105">
+                In die Garage übernehmen
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== CARD DETAIL MODAL / LIGHTBOX ==================== -->
+    <div id="card-detail-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="relative max-w-md w-full bg-cardbg border border-gray-800 rounded-2xl overflow-hidden shadow-2xl p-6 space-y-6">
+            
+            <!-- Close Button -->
+            <button onclick="closeCardDetailModal()" class="absolute top-4 right-4 w-9 h-9 bg-gray-900 border border-gray-800 text-gray-400 hover:text-white rounded-full flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Expanded Card View Container -->
+            <div id="detail-card-render" class="flex justify-center">
+                <!-- Large Card Rendered Here -->
+            </div>
+
+            <div class="flex justify-center">
+                <button onclick="closeCardDetailModal()" class="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl border border-gray-700 transition">
+                    Schließen
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ==================== JAVASCRIPT GAME LOGIC ==================== -->
+    <script>
+        // ==========================================
+        // 1. CAR DATA & TIERS CONFIGURATION
+        // ==========================================
+        
+        const RARITIES = {
+            COMMON: { name: 'Gewöhnlich', color: '#9ea0a6', badgeBg: 'bg-gray-700', border: 'border-gray-600' },
+            RARE: { name: 'Selten', color: '#3b82f6', badgeBg: 'bg-blue-600', border: 'border-blue-500' },
+            EPIC: { name: 'Episch', color: '#a855f7', badgeBg: 'bg-purple-600', border: 'border-purple-500' },
+            LEGENDARY: { name: 'Legendär', color: '#f59e0b', badgeBg: 'bg-amber-500', border: 'border-amber-400' }
+        };
+
+        const TIERS = [
+            {
+                id: 1,
+                title: "Stufe 1: Das Duell (Mercedes vs BMW)",
+                brands: ["Mercedes-Benz", "BMW"],
+                nextGoalText: "Nächstes Ziel: Tier 2 (Audi & Porsche)"
+            },
+            {
+                id: 2,
+                title: "Stufe 2: Deutsche Präzision (Audi & Porsche)",
+                brands: ["Audi", "Porsche"],
+                nextGoalText: "Nächstes Ziel: Tier 3 (Ferrari & Lamborghini)"
+            },
+            {
+                id: 3,
+                title: "Stufe 3: Italienische Leidenschaft (Ferrari & Lamborghini)",
+                brands: ["Ferrari", "Lamborghini"],
+                nextGoalText: "Nächstes Ziel: Tier 4 (Hypercars)"
+            },
+            {
+                id: 4,
+                title: "Stufe 4: Die Hypercar-Elite",
+                brands: ["Bugatti", "Koenigsegg", "Pagani"],
+                nextGoalText: "Maximale Stufe erreicht!"
+            }
+        ];
+
+        // Database of all vehicles with official metadata, specs, real image URLs & rarity
+        const CAR_DATABASE = [
+            // ================= MERCEDES-BENZ =================
+            {
+                id: "m_cls63",
+                name: "Mercedes-AMG CLS 63 S",
+                brand: "Mercedes-Benz",
+                rarity: "Epic",
+                ps: 585,
+                topSpeed: 300,
+                zeroHundred: 3.6,
+                image: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "m_c63",
+                name: "C 63 AMG Coupe",
+                brand: "Mercedes-Benz",
+                rarity: "Rare",
+                ps: 510,
+                topSpeed: 290,
+                zeroHundred: 3.9,
+                image: "https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "m_g63",
+                name: "AMG G 63",
+                brand: "Mercedes-Benz",
+                rarity: "Epic",
+                ps: 585,
+                topSpeed: 240,
+                zeroHundred: 4.5,
+                image: "https://images.unsplash.com/photo-1520050206274-a1ae44613e6d?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "m_gtblack",
+                name: "AMG GT Black Series",
+                brand: "Mercedes-Benz",
+                rarity: "Legendary",
+                ps: 730,
+                topSpeed: 325,
+                zeroHundred: 3.2,
+                image: "https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "m_a45",
+                name: "AMG A 45 S",
+                brand: "Mercedes-Benz",
+                rarity: "Common",
+                ps: 421,
+                topSpeed: 270,
+                zeroHundred: 3.9,
+                image: "https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=800&q=80"
+            },
+
+            // ================= BMW =================
+            {
+                id: "b_m5cs",
+                name: "BMW M5 CS",
+                brand: "BMW",
+                rarity: "Epic",
+                ps: 635,
+                topSpeed: 305,
+                zeroHundred: 3.0,
+                image: "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "b_m3comp",
+                name: "BMW M3 Competition",
+                brand: "BMW",
+                rarity: "Rare",
+                ps: 510,
+                topSpeed: 290,
+                zeroHundred: 3.5,
+                image: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "b_m4csl",
+                name: "BMW M4 CSL",
+                brand: "BMW",
+                rarity: "Legendary",
+                ps: 550,
+                topSpeed: 307,
+                zeroHundred: 3.7,
+                image: "https://images.unsplash.com/photo-1607853202273-797f1c22a38e?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "b_m2",
+                name: "BMW M2 CS",
+                brand: "BMW",
+                rarity: "Common",
+                ps: 450,
+                topSpeed: 280,
+                zeroHundred: 4.0,
+                image: "https://images.unsplash.com/photo-1619330237896-6289f77858f0?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "b_i8",
+                name: "BMW i8 Roadster",
+                brand: "BMW",
+                rarity: "Rare",
+                ps: 374,
+                topSpeed: 250,
+                zeroHundred: 4.6,
+                image: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80"
+            },
+
+            // ================= AUDI (Tier 2) =================
+            {
+                id: "a_rs6",
+                name: "Audi RS6 Avant Performance",
+                brand: "Audi",
+                rarity: "Epic",
+                ps: 630,
+                topSpeed: 305,
+                zeroHundred: 3.4,
+                image: "https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "a_r8",
+                name: "Audi R8 V10 Performance",
+                brand: "Audi",
+                rarity: "Legendary",
+                ps: 620,
+                topSpeed: 331,
+                zeroHundred: 3.1,
+                image: "https://images.unsplash.com/photo-1614200187524-dc4b892acf16?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "a_rs3",
+                name: "Audi RS3 Sportback",
+                brand: "Audi",
+                rarity: "Common",
+                ps: 400,
+                topSpeed: 290,
+                zeroHundred: 3.8,
+                image: "https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "a_rs7",
+                name: "Audi RS7 Sportback",
+                brand: "Audi",
+                rarity: "Rare",
+                ps: 600,
+                topSpeed: 305,
+                zeroHundred: 3.6,
+                image: "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&w=800&q=80"
+            },
+
+            // ================= PORSCHE (Tier 2) =================
+            {
+                id: "p_gt3rs",
+                name: "Porsche 911 GT3 RS",
+                brand: "Porsche",
+                rarity: "Legendary",
+                ps: 525,
+                topSpeed: 296,
+                zeroHundred: 3.2,
+                image: "https://images.unsplash.com/photo-1611821064430-0d40291d0f0b?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "p_911turbo",
+                name: "Porsche 911 Turbo S",
+                brand: "Porsche",
+                rarity: "Epic",
+                ps: 650,
+                topSpeed: 330,
+                zeroHundred: 2.7,
+                image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "p_taycan",
+                name: "Porsche Taycan Turbo S",
+                brand: "Porsche",
+                rarity: "Rare",
+                ps: 761,
+                topSpeed: 260,
+                zeroHundred: 2.8,
+                image: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "p_718GT4",
+                name: "Porsche 718 Cayman GT4",
+                brand: "Porsche",
+                rarity: "Common",
+                ps: 420,
+                topSpeed: 304,
+                zeroHundred: 3.9,
+                image: "https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?auto=format&fit=crop&w=800&q=80"
+            },
+
+            // ================= FERRARI (Tier 3) =================
+            {
+                id: "f_sf90",
+                name: "Ferrari SF90 Stradale",
+                brand: "Ferrari",
+                rarity: "Legendary",
+                ps: 1000,
+                topSpeed: 340,
+                zeroHundred: 2.5,
+                image: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "f_f8",
+                name: "Ferrari F8 Tributo",
+                brand: "Ferrari",
+                rarity: "Epic",
+                ps: 720,
+                topSpeed: 340,
+                zeroHundred: 2.9,
+                image: "https://images.unsplash.com/photo-1592198084033-aade902d1aae?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "f_roma",
+                name: "Ferrari Roma",
+                brand: "Ferrari",
+                rarity: "Rare",
+                ps: 620,
+                topSpeed: 320,
+                zeroHundred: 3.4,
+                image: "https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80"
+            },
+
+            // ================= LAMBORGHINI (Tier 3) =================
+            {
+                id: "l_revuelto",
+                name: "Lamborghini Revuelto",
+                brand: "Lamborghini",
+                rarity: "Legendary",
+                ps: 1015,
+                topSpeed: 350,
+                zeroHundred: 2.5,
+                image: "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "l_huracan",
+                name: "Lamborghini Huracán STO",
+                brand: "Lamborghini",
+                rarity: "Epic",
+                ps: 640,
+                topSpeed: 310,
+                zeroHundred: 3.0,
+                image: "https://images.unsplash.com/photo-1544829099-b9a0c07fad1a?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "l_urus",
+                name: "Lamborghini Urus Performante",
+                brand: "Lamborghini",
+                rarity: "Rare",
+                ps: 666,
+                topSpeed: 306,
+                zeroHundred: 3.3,
+                image: "https://images.unsplash.com/photo-1566473965997-3de9c817e924?auto=format&fit=crop&w=800&q=80"
+            },
+
+            // ================= HYPERCARS (Tier 4) =================
+            {
+                id: "bg_chiron",
+                name: "Bugatti Chiron Super Sport",
+                brand: "Bugatti",
+                rarity: "Legendary",
+                ps: 1600,
+                topSpeed: 440,
+                zeroHundred: 2.4,
+                image: "https://images.unsplash.com/photo-1541348263662-e082662d82da?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "k_jesko",
+                name: "Koenigsegg Jesko Attack",
+                brand: "Koenigsegg",
+                rarity: "Legendary",
+                ps: 1625,
+                topSpeed: 480,
+                zeroHundred: 2.5,
+                image: "https://images.unsplash.com/photo-1614200187524-dc4b892acf16?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: "pg_huayra",
+                name: "Pagani Huayra Roadster BC",
+                brand: "Pagani",
+                rarity: "Legendary",
+                ps: 802,
+                topSpeed: 380,
+                zeroHundred: 2.8,
+                image: "https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80"
+            }
+        ];
+
+        // ==========================================
+        // 2. STATE MANAGEMENT
+        // ==========================================
+        
+        let userState = {
+            unlockedTier: 1,
+            ownedCardIds: [],
+            activeTab: 'packs'
+        };
+
+        let selectedPackToOpen = null;
+
+        // Load saved state from localStorage if available
+        function loadSaveGame() {
+            try {
+                const saved = localStorage.getItem('apex_cards_save_v1');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    userState.unlockedTier = parsed.unlockedTier || 1;
+                    userState.ownedCardIds = parsed.ownedCardIds || [];
+                }
+            } catch (e) {
+                console.error("Could not load save game", e);
+            }
+        }
+
+        function saveGame() {
+            try {
+                localStorage.setItem('apex_cards_save_v1', JSON.stringify({
+                    unlockedTier: userState.unlockedTier,
+                    ownedCardIds: userState.ownedCardIds
+                }));
+            } catch (e) {
+                console.error("Could not save game", e);
+            }
+        }
+
+        // ==========================================
+        // 3. PROGRESSION & TIER LOGIC
+        // ==========================================
+        
+        function getUnlockedBrands() {
+            let brands = [];
+            for (let i = 0; i < userState.unlockedTier; i++) {
+                if (TIERS[i]) {
+                    brands = brands.concat(TIERS[i].brands);
+                }
+            }
+            return brands;
+        }
+
+        function checkTierProgression() {
+            const currentTierConfig = TIERS[userState.unlockedTier - 1];
+            if (!currentTierConfig) return; // Max tier reached
+
+            // Get all cards belonging to current tier brands
+            const tierCars = CAR_DATABASE.filter(car => currentTierConfig.brands.includes(car.brand));
+            if (tierCars.length === 0) return;
+
+            // Count how many of these specific cards the user owns
+            const ownedInTier = tierCars.filter(car => userState.ownedCardIds.includes(car.id)).length;
+            const progressPercent = Math.floor((ownedInTier / tierCars.length) * 100);
+
+            // Update UI elements
+            document.getElementById('tier-title-text').innerText = currentTierConfig.title;
+            document.getElementById('tier-progress-text').innerText = `${progressPercent}% / 80%`;
+            document.getElementById('tier-progress-bar').style.width = `${Math.min(progressPercent, 100)}%`;
+            document.getElementById('tier-next-unlock').innerText = currentTierConfig.nextGoalText;
+
+            // Check unlock condition (80%)
+            if (progressPercent >= 80 && userState.unlockedTier < TIERS.length) {
+                userState.unlockedTier++;
+                saveGame();
+                renderPacksGrid();
+                populateBrandFilterOptions();
+                checkTierProgression(); // Re-evaluate for new tier
+            }
+        }
+
+        // ==========================================
+        // 4. UI RENDERERS
+        // ==========================================
+
+        function switchTab(tabName) {
+            userState.activeTab = tabName;
+            
+            const btnPacks = document.getElementById('nav-btn-packs');
+            const btnGarage = document.getElementById('nav-btn-garage');
+            const secPacks = document.getElementById('tab-packs');
+            const secGarage = document.getElementById('tab-garage');
+
+            if (tabName === 'packs') {
+                btnPacks.className = "px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center space-x-2 bg-accent text-white shadow-md";
+                btnGarage.className = "px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center space-x-2 text-gray-400 hover:text-white hover:bg-gray-800";
+                secPacks.classList.remove('hidden');
+                secGarage.classList.add('hidden');
+            } else {
+                btnGarage.className = "px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center space-x-2 bg-accent text-white shadow-md";
+                btnPacks.className = "px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center space-x-2 text-gray-400 hover:text-white hover:bg-gray-800";
+                secGarage.classList.remove('hidden');
+                secPacks.classList.add('hidden');
+                renderGarage();
+            }
+        }
+
+        function renderPacksGrid() {
+            const container = document.getElementById('packs-grid');
+            container.innerHTML = '';
+
+            const unlockedBrands = getUnlockedBrands();
+
+            // 1. STANDARD PACK (Always Available)
+            const standardPackCard = `
+                <div class="bg-cardbg border border-gray-800 rounded-2xl p-5 flex flex-col justify-between hover:border-accent transition duration-300 shadow-xl relative overflow-hidden group">
+                    <div class="absolute -right-6 -top-6 w-24 h-24 bg-accent/10 rounded-full blur-xl group-hover:bg-accent/20 transition"></div>
+                    <div>
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="bg-accent/20 text-accent text-xs font-orbitron font-bold px-3 py-1 rounded-full border border-accent/30">MULTI-BRAND</span>
+                            <i class="fa-solid fa-boxes-packing text-2xl text-accent"></i>
+                        </div>
+                        <h4 class="text-xl font-orbitron font-bold text-white mb-2">Standard Pack</h4>
+                        <p class="text-gray-400 text-xs mb-4">Enthält 5 zufällige Autos aus allen freigeschalteten Marken.</p>
+                    </div>
+                    <button onclick="preparePackOpening('STANDARD')" class="w-full py-3 bg-gradient-to-r from-accent to-red-600 hover:from-red-600 hover:to-accent text-white font-orbitron font-bold rounded-xl shadow-lg shadow-accent/20 transition transform active:scale-95">
+                        Kostenlos Öffnen
+                    </button>
+                </div>
+            `;
+            container.innerHTML += standardPackCard;
+
+            // 2. BRAND SPECIAL PACKS
+            unlockedBrands.forEach(brand => {
+                const brandCars = CAR_DATABASE.filter(c => c.brand === brand);
+                const ownedCount = brandCars.filter(c => userState.ownedCardIds.includes(c.id)).length;
+                const percent = Math.floor((ownedCount / brandCars.length) * 100);
+
+                const packHTML = `
+                    <div class="bg-cardbg border border-gray-800 rounded-2xl p-5 flex flex-col justify-between hover:border-gray-600 transition duration-300 shadow-xl relative overflow-hidden group">
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="bg-blue-500/20 text-blue-400 text-xs font-orbitron font-bold px-3 py-1 rounded-full border border-blue-500/30">SPEZIAL PACK</span>
+                                <i class="fa-solid fa-car text-xl text-blue-400"></i>
+                            </div>
+                            <h4 class="text-xl font-orbitron font-bold text-white mb-1">${brand} Special</h4>
+                            <div class="text-xs text-gray-400 mb-4 flex justify-between">
+                                <span>Sammlung:</span>
+                                <span class="font-bold text-white">${ownedCount}/${brandCars.length} (${percent}%)</span>
+                            </div>
+                        </div>
+                        <button onclick="preparePackOpening('${brand}')" class="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-orbitron font-bold rounded-xl border border-gray-700 transition transform active:scale-95">
+                            Pack Öffnen
+                        </button>
+                    </div>
+                `;
+                container.innerHTML += packHTML;
+            });
+        }
+
+        // Render card markup helper
+        function createCardElementHTML(car, isOwned = true, isCompact = false) {
+            const rarityConfig = RARITIES[car.rarity.toUpperCase()] || RARITIES.COMMON;
+            
+            if (!isOwned) {
+                return `
+                    <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center opacity-60 min-h-[280px]">
+                        <i class="fa-solid fa-lock text-4xl text-gray-600 mb-3"></i>
+                        <div class="font-orbitron font-bold text-sm text-gray-400 mb-1">${car.name}</div>
+                        <div class="text-xs text-gray-600">${car.brand}</div>
+                        <div class="mt-4 text-[10px] bg-gray-800 text-gray-500 px-2.5 py-1 rounded-full uppercase tracking-wider">${rarityConfig.name}</div>
+                    </div>
+                `;
+            }
+
+            const rarityClass = car.rarity === 'Legendary' ? 'card-legendary' : (car.rarity === 'Epic' ? 'card-epic' : '');
+
+            return `
+                <div onclick="openCardDetailModal('${car.id}')" class="cursor-pointer bg-cardbg border ${rarityConfig.border} ${rarityClass} rounded-2xl overflow-hidden shadow-xl hover:scale-105 transition-all duration-300 flex flex-col justify-between">
+                    <div>
+                        <!-- CARD HEADER -->
+                        <div class="p-3 bg-gradient-to-b from-gray-900 to-transparent flex justify-between items-center">
+                            <span class="text-xs font-orbitron font-bold text-white tracking-wide">${car.brand}</span>
+                            <span class="text-[10px] font-bold ${rarityConfig.badgeBg} text-white px-2 py-0.5 rounded-full uppercase">${rarityConfig.name}</span>
+                        </div>
+
+                        <!-- CAR IMAGE -->
+                        <div class="h-32 w-full overflow-hidden relative bg-black/40">
+                            <img src="${car.image}" alt="${car.name}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80'">
+                        </div>
+
+                        <!-- CAR TITLE -->
+                        <div class="p-3">
+                            <h5 class="font-orbitron font-bold text-sm text-white truncate">${car.name}</h5>
+                        </div>
+                    </div>
+
+                    <!-- CAR SPECS GRID -->
+                    <div class="p-3 pt-0 grid grid-cols-3 gap-1 text-center bg-gray-950/50 border-t border-gray-800/50">
+                        <div class="p-1">
+                            <div class="text-[9px] text-gray-400 font-semibold uppercase">PS</div>
+                            <div class="text-xs font-orbitron font-bold text-accent">${car.ps}</div>
+                        </div>
+                        <div class="p-1 border-x border-gray-800/50">
+                            <div class="text-[9px] text-gray-400 font-semibold uppercase">KM/H</div>
+                            <div class="text-xs font-orbitron font-bold text-white">${car.topSpeed}</div>
+                        </div>
+                        <div class="p-1">
+                            <div class="text-[9px] text-gray-400 font-semibold uppercase">0-100</div>
+                            <div class="text-xs font-orbitron font-bold text-blue-400">${car.zeroHundred}s</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Populate filter dropdowns
+        function populateBrandFilterOptions() {
+            const select = document.getElementById('filter-brand');
+            const currentVal = select.value;
+            select.innerHTML = '<option value="ALL">Alle Marken</option>';
+
+            const unlockedBrands = getUnlockedBrands();
+            unlockedBrands.forEach(brand => {
+                const opt = document.createElement('option');
+                opt.value = brand;
+                opt.innerText = brand;
+                select.appendChild(opt);
+            });
+            select.value = currentVal;
+        }
+
+        // Render Garage Collection
+        function renderGarage() {
+            const grid = document.getElementById('garage-grid');
+            grid.innerHTML = '';
+
+            const brandFilter = document.getElementById('filter-brand').value;
+            const rarityFilter = document.getElementById('filter-rarity').value;
+            const statusFilter = document.getElementById('filter-status').value;
+
+            // Only show cars from unlocked brands
+            const unlockedBrands = getUnlockedBrands();
+            let availableCars = CAR_DATABASE.filter(c => unlockedBrands.includes(c.brand));
+
+            // Apply Filters
+            if (brandFilter !== 'ALL') {
+                availableCars = availableCars.filter(c => c.brand === brandFilter);
+            }
+            if (rarityFilter !== 'ALL') {
+                availableCars = availableCars.filter(c => c.rarity === rarityFilter);
+            }
+
+            let ownedTotalCount = 0;
+            const totalAvailableCount = availableCars.length;
+
+            availableCars.forEach(car => {
+                const isOwned = userState.ownedCardIds.includes(car.id);
+                if (isOwned) ownedTotalCount++;
+
+                if (statusFilter === 'OWNED' && !isOwned) return;
+                if (statusFilter === 'LOCKED' && isOwned) return;
+
+                grid.innerHTML += createCardElementHTML(car, isOwned);
+            });
+
+            // Update stats badge
+            const totalOwnedGlobal = CAR_DATABASE.filter(c => userState.ownedCardIds.includes(c.id)).length;
+            const totalGlobal = CAR_DATABASE.length;
+            document.getElementById('collected-badge').innerText = `${totalOwnedGlobal}/${totalGlobal}`;
+            document.getElementById('garage-stats-total').innerText = `${totalOwnedGlobal} / ${totalGlobal}`;
+            
+            const overallPercent = Math.floor((totalOwnedGlobal / totalGlobal) * 100);
+            document.getElementById('garage-stats-percent').innerText = `${overallPercent}%`;
+        }
+
+        function applyGarageFilters() {
+            renderGarage();
+        }
+
+        // ==========================================
+        // 5. PACK OPENING LOGIC & ANIMATION
+        // ==========================================
+        
+        function preparePackOpening(packType) {
+            selectedPackToOpen = packType;
+            
+            document.getElementById('modal-pack-title').innerText = packType === 'STANDARD' ? 'STANDARD PACK' : `${packType.toUpperCase()} PACK`;
+            document.getElementById('modal-pack-name').innerText = packType === 'STANDARD' ? 'STANDARD' : packType;
+            
+            document.getElementById('pack-stage-closed').classList.remove('hidden');
+            document.getElementById('pack-stage-cards').classList.add('hidden');
+            document.getElementById('opening-modal').classList.remove('hidden');
+        }
+
+        function triggerPackOpenSequence() {
+            const packGraphic = document.getElementById('sealed-pack-graphic');
+            packGraphic.classList.add('shake-animation');
+
+            setTimeout(() => {
+                packGraphic.classList.remove('shake-animation');
+                
+                // Draw 5 Cards
+                const drawnCards = drawCardsFromPack(selectedPackToOpen, 5);
+                
+                // Save newly unlocked cards
+                drawnCards.forEach(car => {
+                    if (!userState.ownedCardIds.includes(car.id)) {
+                        userState.ownedCardIds.push(car.id);
+                    }
+                });
+
+                saveGame();
+                checkTierProgression();
+
+                // Display revealed cards
+                const revealedContainer = document.getElementById('revealed-cards-container');
+                revealedContainer.innerHTML = '';
+                
+                drawnCards.forEach((car, index) => {
+                    const cardWrapper = document.createElement('div');
+                    cardWrapper.className = 'card-appear';
+                    cardWrapper.style.animationDelay = `${index * 0.15}s`;
+                    cardWrapper.innerHTML = createCardElementHTML(car, true);
+                    revealedContainer.appendChild(cardWrapper);
+                });
+
+                document.getElementById('pack-stage-closed').classList.add('hidden');
+                document.getElementById('pack-stage-cards').classList.remove('hidden');
+
+            }, 600);
+        }
+
+        function drawCardsFromPack(packType, count = 5) {
+            let pool = [];
+            const unlockedBrands = getUnlockedBrands();
+
+            if (packType === 'STANDARD') {
+                pool = CAR_DATABASE.filter(car => unlockedBrands.includes(car.brand));
+            } else {
+                pool = CAR_DATABASE.filter(car => car.brand === packType);
+            }
+
+            if (pool.length === 0) pool = CAR_DATABASE; // Fallback
+
+            const drawn = [];
+            for (let i = 0; i < count; i++) {
+                const randomIndex = Math.floor(Math.random() * pool.length);
+                drawn.push(pool[randomIndex]);
+            }
+            return drawn;
+        }
+
+        function closeOpeningModal() {
+            document.getElementById('opening-modal').classList.add('hidden');
+            renderPacksGrid();
+            renderGarage();
+        }
+
+        // ==========================================
+        // 6. CARD DETAIL MODAL
+        // ==========================================
+        
+        function openCardDetailModal(carId) {
+            const car = CAR_DATABASE.find(c => c.id === carId);
+            if (!car) return;
+
+            const renderContainer = document.getElementById('detail-card-render');
+            const rarityConfig = RARITIES[car.rarity.toUpperCase()] || RARITIES.COMMON;
+            const rarityClass = car.rarity === 'Legendary' ? 'card-legendary' : (car.rarity === 'Epic' ? 'card-epic' : '');
+
+            renderContainer.innerHTML = `
+                <div class="w-full bg-cardbg border ${rarityConfig.border} ${rarityClass} rounded-2xl overflow-hidden shadow-2xl">
+                    <div class="p-4 bg-gradient-to-b from-gray-900 to-transparent flex justify-between items-center">
+                        <span class="text-sm font-orbitron font-bold text-white tracking-wide">${car.brand}</span>
+                        <span class="text-xs font-bold ${rarityConfig.badgeBg} text-white px-3 py-1 rounded-full uppercase">${rarityConfig.name}</span>
+                    </div>
+
+                    <div class="h-56 w-full overflow-hidden relative bg-black">
+                        <img src="${car.image}" alt="${car.name}" class="w-full h-full object-cover">
+                    </div>
+
+                    <div class="p-5 space-y-4">
+                        <h3 class="font-orbitron font-extrabold text-xl text-white">${car.name}</h3>
+
+                        <div class="grid grid-cols-3 gap-2 text-center bg-gray-950 p-3 rounded-xl border border-gray-800">
+                            <div>
+                                <div class="text-[10px] text-gray-400 font-semibold uppercase">Leistung</div>
+                                <div class="text-base font-orbitron font-bold text-accent">${car.ps} PS</div>
+                            </div>
+                            <div class="border-x border-gray-800">
+                                <div class="text-[10px] text-gray-400 font-semibold uppercase">Top Speed</div>
+                                <div class="text-base font-orbitron font-bold text-white">${car.topSpeed} km/h</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-gray-400 font-semibold uppercase">0-100 km/h</div>
+                                <div class="text-base font-orbitron font-bold text-blue-400">${car.zeroHundred}s</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('card-detail-modal').classList.remove('hidden');
+        }
+
+        function closeCardDetailModal() {
+            document.getElementById('card-detail-modal').classList.add('hidden');
+        }
+
+        // ==========================================
+        // 7. INIT ON LOAD
+        // ==========================================
+        window.onload = function() {
+            loadSaveGame();
+            populateBrandFilterOptions();
+            checkTierProgression();
+            renderPacksGrid();
+            renderGarage();
+        };
+    </script>
+</body>
+</html>
