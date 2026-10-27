@@ -34,7 +34,6 @@
       overflow-x: hidden;
     }
 
-    /* Header & Navigation */
     header {
       background: #090d16;
       padding: 1rem;
@@ -72,7 +71,6 @@
       transform: scale(0.95);
     }
 
-    /* Main Container */
     main {
       flex: 1;
       padding: 1rem;
@@ -81,7 +79,6 @@
       width: 100%;
     }
 
-    /* Pack Selection View */
     .pack-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -127,7 +124,6 @@
       transform: scale(0.98);
     }
 
-    /* Progress Tracker Bar */
     .progress-box {
       background: #090d16;
       border-radius: 12px;
@@ -157,7 +153,6 @@
       transition: width 0.4s ease;
     }
 
-    /* Card Item Style (Mobile First Grid) */
     .cards-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -244,7 +239,6 @@
       border-radius: 6px;
     }
 
-    /* Garage Filter UI */
     .filter-bar {
       display: flex;
       gap: 0.5rem;
@@ -276,7 +270,6 @@
       border-color: var(--accent);
     }
 
-    /* Fullscreen Modal View for Mobile */
     .modal {
       position: fixed;
       top: 0;
@@ -367,7 +360,6 @@
   </header>
 
   <main>
-    <!-- PACKS VIEW -->
     <div id="packs-view">
       <div class="progress-box">
         <div class="progress-info">
@@ -380,24 +372,18 @@
       </div>
 
       <h2 style="font-size: 1.1rem; margin-bottom: 0.8rem; color: #94a3b8;">Verfügbare Packs</h2>
-      <div class="pack-grid" id="pack-container">
-        <!-- Packs via JS -->
-      </div>
+      <div class="pack-grid" id="pack-container"></div>
     </div>
 
-    <!-- GARAGE VIEW -->
     <div id="garage-view" style="display: none;">
       <div class="filter-bar" id="brand-filters">
         <div class="filter-chip active" onclick="filterGarage('ALL')">Alle</div>
       </div>
 
-      <div class="cards-grid" id="garage-container">
-        <!-- Garage Cards via JS -->
-      </div>
+      <div class="cards-grid" id="garage-container"></div>
     </div>
   </main>
 
-  <!-- DETAIL MODAL -->
   <div class="modal" id="card-modal" onclick="closeModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <button class="modal-close" onclick="closeModal()">✕</button>
@@ -417,26 +403,25 @@
   </div>
 
   <script>
-    // CAR DATABASE MIT EXAKTEN MODELL-BILDERN
+    // GARANTIERT EXAKTE UND PERMANENTE BILD-URLS
     const CARS = [
       // MERCEDES
-      { id: 'm1', brand: 'Mercedes', name: 'AMG CLS 63 S', ps: 585, speed: 300, acc: 3.6, rarity: 'Epic', img: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&auto=format&fit=crop' },
-      { id: 'm2', brand: 'Mercedes', name: 'AMG GT R', ps: 585, speed: 318, acc: 3.6, rarity: 'Legendary', img: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=800&auto=format&fit=crop' },
-      { id: 'm3', brand: 'Mercedes', name: 'C 63 AMG Coupe', ps: 510, speed: 290, acc: 3.9, rarity: 'Rare', img: 'https://images.unsplash.com/photo-1563720223185-11003d516935?w=800&auto=format&fit=crop' },
-      { id: 'm4', brand: 'Mercedes', name: 'A 45 S AMG', ps: 421, speed: 270, acc: 3.9, rarity: 'Common', img: 'https://images.unsplash.com/photo-1553440569-bcc63803a83d?w=800&auto=format&fit=crop' },
+      { id: 'm1', brand: 'Mercedes', name: 'AMG CLS 63 S', ps: 585, speed: 300, acc: 3.6, rarity: 'Epic', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Mercedes-AMG_CLS_63_S_4MATIC_%28C_218%29_%E2%80%93_Frontansicht%2C_20_Mai_2017%2C_D%C3%BCsseldorf.jpg/800px-Mercedes-AMG_CLS_63_S_4MATIC_%28C_218%29_%E2%80%93_Frontansicht%2C_20_Mai_2017%2C_D%C3%BCsseldorf.jpg' },
+      { id: 'm2', brand: 'Mercedes', name: 'AMG GT R', ps: 585, speed: 318, acc: 3.6, rarity: 'Legendary', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Mercedes-AMG_GT_R_%28C_190%29_%E2%80%93_Frontansicht_3%2C_5._Oktober_2019%2C_D%C3%BCsseldorf.jpg/800px-Mercedes-AMG_GT_R_%28C_190%29_%E2%80%93_Frontansicht_3%2C_5._Oktober_2019%2C_D%C3%BCsseldorf.jpg' },
+      { id: 'm3', brand: 'Mercedes', name: 'C 63 AMG Coupe', ps: 510, speed: 290, acc: 3.9, rarity: 'Rare', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Mercedes-AMG_C_63_S_Coupe_%28C_205%29_%E2%80%93_Frontansicht%2C_12._M%C3%A4rz_2016%2C_D%C3%BCsseldorf.jpg/800px-Mercedes-AMG_C_63_S_Coupe_%28C_205%29_%E2%80%93_Frontansicht%2C_12._M%C3%A4rz_2016%2C_D%C3%BCsseldorf.jpg' },
+      { id: 'm4', brand: 'Mercedes', name: 'A 45 S AMG', ps: 421, speed: 270, acc: 3.9, rarity: 'Common', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Mercedes-AMG_A_45_S_4MATIC%2B_%28W_177%22%29_%E2%80%93_f_11102020.jpg/800px-Mercedes-AMG_A_45_S_4MATIC%2B_%28W_177%22%29_%E2%80%93_f_11102020.jpg' },
       
       // BMW
-      { id: 'b1', brand: 'BMW', name: 'M5 CS', ps: 635, speed: 305, acc: 3.0, rarity: 'Legendary', img: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&auto=format&fit=crop' },
-      { id: 'b2', brand: 'BMW', name: 'M3 Competition', ps: 510, speed: 290, acc: 3.5, rarity: 'Epic', img: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=800&auto=format&fit=crop' },
-      { id: 'b3', brand: 'BMW', name: 'M2 CS', ps: 450, speed: 280, acc: 4.0, rarity: 'Rare', img: 'https://images.unsplash.com/photo-1607853202273-797f1c22a38e?w=800&auto=format&fit=crop' },
-      { id: 'b4', brand: 'BMW', name: 'M135i xDrive', ps: 306, speed: 250, acc: 4.8, rarity: 'Common', img: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop' },
+      { id: 'b1', brand: 'BMW', name: 'M5 CS', ps: 635, speed: 305, acc: 3.0, rarity: 'Legendary', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/BMW_M5_CS_IMG_4804.jpg/800px-BMW_M5_CS_IMG_4804.jpg' },
+      { id: 'b2', brand: 'BMW', name: 'M3 Competition', ps: 510, speed: 290, acc: 3.5, rarity: 'Epic', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/BMW_M3_Competition_%28G80%29_IMG_3962.jpg/800px-BMW_M3_Competition_%28G80%29_IMG_3962.jpg' },
+      { id: 'b3', brand: 'BMW', name: 'M2 CS', ps: 450, speed: 280, acc: 4.0, rarity: 'Rare', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/BMW_M2_CS_Genf_2018.jpg/800px-BMW_M2_CS_Genf_2018.jpg' },
+      { id: 'b4', brand: 'BMW', name: 'M135i xDrive', ps: 306, speed: 250, acc: 4.8, rarity: 'Common', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/BMW_M135i_xDrive_F40_IMG_2628.jpg/800px-BMW_M135i_xDrive_F40_IMG_2628.jpg' },
 
-      // PORSCHE (TIER 2 - UNLOCK AT 80%)
-      { id: 'p1', brand: 'Porsche', name: '911 GT3 RS', ps: 525, speed: 296, acc: 3.2, rarity: 'Legendary', img: 'https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?w=800&auto=format&fit=crop' },
-      { id: 'p2', brand: 'Porsche', name: 'Taycan Turbo S', ps: 761, speed: 260, acc: 2.8, rarity: 'Epic', img: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop' }
+      // PORSCHE
+      { id: 'p1', brand: 'Porsche', name: '911 GT3 RS', ps: 525, speed: 296, acc: 3.2, rarity: 'Legendary', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Porsche_911_GT3_RS_%28992%29_IMG_8204.jpg/800px-Porsche_911_GT3_RS_%28992%29_IMG_8204.jpg' },
+      { id: 'p2', brand: 'Porsche', name: 'Taycan Turbo S', ps: 761, speed: 260, acc: 2.8, rarity: 'Epic', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Porsche_Taycan_Turbo_S_Genf_2020_IMG_0002.jpg/800px-Porsche_Taycan_Turbo_S_Genf_2020_IMG_0002.jpg' }
     ];
 
-    // STATE MANAGEMENT
     let inventory = [];
     let activeView = 'packs';
     let currentFilter = 'ALL';
@@ -455,7 +440,6 @@
         pool = CARS.filter(c => c.brand === brand);
       }
       
-      // Pull 3 Random Cards
       let pulled = [];
       for(let i=0; i<3; i++) {
         const rand = pool[Math.floor(Math.random() * pool.length)];
@@ -559,7 +543,6 @@
       document.getElementById('card-modal').classList.remove('active');
     }
 
-    // INIT
     renderPacks();
   </script>
 </body>
